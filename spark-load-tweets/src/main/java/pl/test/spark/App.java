@@ -1,36 +1,50 @@
 package pl.test.spark;
 
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
-import org.apache.spark.SparkConf;
-import org.apache.spark.streaming.Durations;
-import org.apache.spark.streaming.api.java.JavaDStream;
-import org.apache.spark.streaming.api.java.JavaReceiverInputDStream;
-import org.apache.spark.streaming.api.java.JavaStreamingContext;
-import org.apache.spark.streaming.twitter.TwitterUtils;
-import twitter4j.Status;
-
-import java.util.Date;
+import twitter4j.*;
+import twitter4j.conf.ConfigurationBuilder;
 
 public class App {
 
-    static {
-        Logger.getLogger("org.apache.spark").setLevel(Level.ERROR);
+    public static void main(String[] args) {
+        readTweetsUsingTwitter4j();
     }
 
-    public static void main(String[] args) {
-        System.out.println( "Hello World! Now is: " + new Date());
+    private static void readTweetsUsingTwitter4j() {
+        StatusListener listener = new StatusListener() {
+            @Override
+            public void onStatus(Status status) {
+                String rawJSON = TwitterObjectFactory.getRawJSON(status);
+                System.out.println(rawJSON);
+//                System.out.println(status.getUser().getName() + " : " + status.getText());
+            }
 
-        SparkConf conf = new SparkConf().setAppName("Tweets Loader");
-        JavaStreamingContext jssc = new JavaStreamingContext(conf, Durations.seconds(1));
+            public void onDeletionNotice(StatusDeletionNotice statusDeletionNotice) {
+            }
 
-        JavaReceiverInputDStream<Status> tweets = TwitterUtils.createStream(jssc);
-        JavaDStream<Status> plTweets = tweets.filter(s -> s.getLang().contains("pl") || s.getLang().contains("PL") || s.getLang().contains("Pl"));
-        // Print tweets:
-        plTweets.print(100);
+            public void onTrackLimitationNotice(int numberOfLimitedStatuses) {
+                System.out.println("LIMIT: " + numberOfLimitedStatuses);
+            }
 
-        jssc.start();
-        jssc.awaitTermination();
+            @Override
+            public void onScrubGeo(long l, long l1) {
 
+            }
+
+            @Override
+            public void onStallWarning(StallWarning stallWarning) {
+
+            }
+
+            public void onException(Exception ex) {
+                ex.printStackTrace();
+            }
+        };
+
+        ConfigurationBuilder cb = new ConfigurationBuilder();
+        cb.setJSONStoreEnabled(true);
+        TwitterStream twitterStream = new TwitterStreamFactory(cb.build()).getInstance();
+        twitterStream.addListener(listener);
+        // sample() method internally creates a thread which manipulates TwitterStream and calls these adequate listener methods continuously.
+        twitterStream.sample("pl");
     }
 }
